@@ -15,6 +15,80 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// BaseEvent only contains the type of the event.
+// It's used to determine what type of event was sent.
+type BaseEvent struct {
+	Type string `json:"type"`
+}
+
+// HelloEvent contains the meta data for the "hello" event.
+type HelloEvent struct{}
+
+// PongEvent contains the meta data for the p"ong" event.
+type PongEvent struct {
+	Time    uint64 `json:"time"`
+	ReplyTo uint64 `json:"reply_to"`
+}
+
+// UserTypingEvent contains the meta data for the "user_typing" event.
+type UserTypingEvent struct {
+	Channel string `json:"channel"`
+	User    string `json:"user"`
+}
+
+// MessageEvent contains the meta data for the "message" event.
+type MessageEvent struct {
+	ClientMessageID      string `json:"client_msg_id"`
+	SuppressNotification bool   `json:"suppress_notification"`
+	Text                 string `json:"text"`
+	User                 string `json:"user"`
+	Team                 string `json:"team"`
+	UserTeam             string `json:"user_team"`
+	SourceTeam           string `json:"source_team"`
+	Channel              string `json:"channel"`
+	EventTimestamp       string `json:"event_ts"`
+	Timestamp            string `json:"ts"`
+}
+
+//{"type":"message","subtype":"message_deleted","hidden":true,"deleted_ts":"1562535873.000700","channel":"DL5D3MPRC","previous_message":{"client_msg_id":"c3369c99-c93b-4a54-8d6c-832e5ec3474f","type":"message","text":"Woop","user":"U4B40LWQL","ts":"1562535873.000700","team":"T1CAKHC0N"},"event_ts":"1562536425.001400","ts":"1562536425.001400"}
+
+// DesktopNotificationEvent contains the meta data for the "desktop_notification" event.
+type DesktopNotificationEvent struct {
+	Title           string `json:"title"`
+	Subtitle        string `json:"subtitle"`
+	Message         string `json:"msg"`
+	Timestamp       string `json:"ts"`
+	Content         string `json:"content"`
+	Channel         string `json:"channel"`
+	LaunchURI       string `json:"launchUri"`
+	AvatarImage     string `json:"avatarImage"`
+	SsbFilename     string `json:"ssbFilename"`
+	ImageURI        string `json:"imageUri"`
+	IsShared        bool   `json:"is_shared"`
+	IsChannelInvite bool   `json:"is_channel_invite"`
+	EventTimestamp  string `json:"event_ts"`
+}
+
+// ReactionAddedEvent contains the meta data for the "reaction_added" event.
+type ReactionAddedEvent struct {
+	// "item":{"type":"message","channel":"DL5D3MPRC","ts":"1562535873.000700"}
+	User           string `json:"user"`
+	Reaction       string `json:"reaction"`
+	ItemUser       string `json:"item_user"`
+	EventTimestamp string `json:"event_ts"`
+	Timestamp      string `json:"ts"`
+}
+
+// ReactionRemovedEvent contains the meta data for the "reaction_removed" event.
+type ReactionRemovedEvent struct {
+	// "item":{"type":"message","channel":"DL5D3MPRC","ts":"1562535873.000700"}
+	User           string `json:"user"`
+	Reaction       string `json:"reaction"`
+	ItemUser       string `json:"item_user"`
+	EventTimestamp string `json:"event_ts"`
+	Timestamp      string `json:"ts"`
+}
+
 func connect(token string) {
 	const authURL = "https://slack.com/api/rtm.connect?token=%s&presence_sub=1&batch_presence_aware=1"
 
@@ -96,6 +170,48 @@ func connect(token string) {
 				return
 			}
 			log.Printf("recv: %s", message)
+			var e BaseEvent
+			err = json.Unmarshal(message, &e)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			err = nil
+			switch e.Type {
+			case "hello":
+				var ev HelloEvent
+				err = json.Unmarshal(message, &ev)
+				log.Println("Hello")
+			case "pong":
+				var ev PongEvent
+				err = json.Unmarshal(message, &ev)
+				log.Println("Pong: ", ev.ReplyTo)
+			case "user_typing":
+				var ev UserTypingEvent
+				err = json.Unmarshal(message, &ev)
+				log.Println("User typing:", ev.User, ev.Channel)
+			case "message":
+				var ev MessageEvent
+				err = json.Unmarshal(message, &ev)
+				log.Println("Message", ev.Text)
+			case "desktop_notification":
+				var ev DesktopNotificationEvent
+				err = json.Unmarshal(message, &ev)
+				log.Println("Desktop notification")
+			case "reaction_added":
+				var ev ReactionAddedEvent
+				err = json.Unmarshal(message, &ev)
+				log.Println("Reaction added")
+			case "reaction_removed":
+				var ev ReactionRemovedEvent
+				err = json.Unmarshal(message, &ev)
+				log.Println("Reaction removed")
+			default:
+				log.Printf("Unknown event: %v -> %v", e.Type, message)
+			}
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 	}()
 
