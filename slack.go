@@ -18,7 +18,8 @@ import (
 // BaseEvent only contains the type of the event.
 // It's used to determine what type of event was sent.
 type BaseEvent struct {
-	Type string `json:"type"`
+	Type    string `json:"type"`
+	SubType string `json:"subtype"`
 }
 
 // HelloEvent contains the meta data for the "hello" event.
@@ -50,7 +51,50 @@ type MessageEvent struct {
 	Timestamp            string `json:"ts"`
 }
 
-//{"type":"message","subtype":"message_deleted","hidden":true,"deleted_ts":"1562535873.000700","channel":"DL5D3MPRC","previous_message":{"client_msg_id":"c3369c99-c93b-4a54-8d6c-832e5ec3474f","type":"message","text":"Woop","user":"U4B40LWQL","ts":"1562535873.000700","team":"T1CAKHC0N"},"event_ts":"1562536425.001400","ts":"1562536425.001400"}
+type messageEdited struct {
+	User      string `json:"user"`
+	Timestamp string `json:"ts"`
+}
+
+type message struct {
+	ClientMessageID string        `json:"client_msg_id"`
+	Text            string        `json:"text"`
+	User            string        `json:"user"`
+	Team            string        `json:"team"`
+	Edited          messageEdited `json:"edited"`
+	UserTeam        string        `json:"user_team"`
+	SourceTeam      string        `json:"source_team"`
+	Channel         string        `json:"channel"`
+	Timestamp       string        `json:"ts"`
+}
+
+type previousMessage struct {
+	ClientMessageID string `json:"client_msg_id"`
+	Text            string `json:"text"`
+	User            string `json:"user"`
+	Team            string `json:"team"`
+	Timestamp       string `json:"ts"`
+}
+
+// MessageChangedEvent contains the meta data for the event "message_changed" event.
+type MessageChangedEvent struct {
+	Hidden          bool            `json:"hidden"`
+	Message         message         `json:"message"`
+	Channel         string          `json:"channel"`
+	PreviousMessage previousMessage `json:"previous_message"`
+	EventTimestamp  string          `json:"event_ts"`
+	Timestamp       string          `json:"ts"`
+}
+
+// MessageDeletedEvent contains the meta data for the "message_deleted" event.
+type MessageDeletedEvent struct {
+	Hidden           bool            `json:"hidden"`
+	DeletedTimestamp string          `json:"deleted_ts"`
+	Channel          string          `json:"channel"`
+	PreviousMessage  previousMessage `json:"previous_message"`
+	EventTimestamp   string          `json:"event_ts"`
+	Timestamp        string          `json:"ts"`
+}
 
 // DesktopNotificationEvent contains the meta data for the "desktop_notification" event.
 type DesktopNotificationEvent struct {
@@ -69,9 +113,14 @@ type DesktopNotificationEvent struct {
 	EventTimestamp  string `json:"event_ts"`
 }
 
+type item struct {
+	Channel   string `json:"channel"`
+	Timestamp string `json:"ts"`
+}
+
 // ReactionAddedEvent contains the meta data for the "reaction_added" event.
 type ReactionAddedEvent struct {
-	// "item":{"type":"message","channel":"DL5D3MPRC","ts":"1562535873.000700"}
+	Item           item   `json:"item"`
 	User           string `json:"user"`
 	Reaction       string `json:"reaction"`
 	ItemUser       string `json:"item_user"`
@@ -81,7 +130,7 @@ type ReactionAddedEvent struct {
 
 // ReactionRemovedEvent contains the meta data for the "reaction_removed" event.
 type ReactionRemovedEvent struct {
-	// "item":{"type":"message","channel":"DL5D3MPRC","ts":"1562535873.000700"}
+	Item           item   `json:"item"`
 	User           string `json:"user"`
 	Reaction       string `json:"reaction"`
 	ItemUser       string `json:"item_user"`
@@ -191,9 +240,20 @@ func connect(token string) {
 				err = json.Unmarshal(message, &ev)
 				log.Println("User typing:", ev.User, ev.Channel)
 			case "message":
-				var ev MessageEvent
-				err = json.Unmarshal(message, &ev)
-				log.Println("Message", ev.Text)
+				switch e.SubType {
+				case "message_changed":
+					var ev MessageChangedEvent
+					err = json.Unmarshal(message, &ev)
+					log.Println("Message changed", ev.Message.Text)
+				case "message_deleted":
+					var ev MessageDeletedEvent
+					err = json.Unmarshal(message, &ev)
+					log.Println("Message deleted")
+				default:
+					var ev MessageEvent
+					err = json.Unmarshal(message, &ev)
+					log.Println("Message", ev.Text)
+				}
 			case "desktop_notification":
 				var ev DesktopNotificationEvent
 				err = json.Unmarshal(message, &ev)
